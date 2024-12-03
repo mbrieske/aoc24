@@ -3,7 +3,7 @@ advent_of_code::solution!(1);
 pub fn part_one(input: &str) -> Option<u32> {
     let (mut left, mut right): (Vec<u32>, Vec<u32>) = input.lines()
     .filter_map(|l| l.split_once("   ")
-    .and_then(|(left, right)| Some((left.parse::<u32>().unwrap(), right.parse::<u32>().unwrap()))))
+    .map(|(left, right)| (left.parse::<u32>().unwrap(), right.parse::<u32>().unwrap())))
     .unzip();
 
     left.sort();
@@ -17,7 +17,7 @@ pub fn part_one(input: &str) -> Option<u32> {
 pub fn part_two(input: &str) -> Option<u32> {
     let (left, right): (Vec<u32>, Vec<u32>) = input.lines()
     .filter_map(|l| l.split_once("   ")
-    .and_then(|(left, right)| Some((left.parse::<u32>().unwrap(), right.parse::<u32>().unwrap()))))
+    .map(|(left, right)| (left.parse::<u32>().unwrap(), right.parse::<u32>().unwrap())))
     .unzip();
 
     Some(left.iter().fold(0, |acc, l| {

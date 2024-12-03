@@ -34,14 +34,14 @@ pub fn part_one(input: &str) -> Option<u32> {
     Some(input.lines().map(|line| {
         let seq: Vec<u32> = line.split_whitespace().map(|n| n.parse().unwrap()).collect();
         is_safe(seq.as_slice())
-    }).filter(|&s| s == true).count() as u32)
+    }).filter(|&s| s).count() as u32)
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
     Some(input.lines().map(|line| {
         let seq: Vec<u32> = line.split_whitespace().map(|n| n.parse().unwrap()).collect();
         is_safe(seq.as_slice()) || can_be_made_safe(seq.as_slice())
-    }).filter(|&s| s == true).count() as u32)
+    }).filter(|&s| s).count() as u32)
 }
 
 #[cfg(test)]
