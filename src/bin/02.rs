@@ -5,24 +5,26 @@ advent_of_code::solution!(2);
 enum SequenceSafety {
     SafeUp,
     SafeDown,
-    Unsafe
+    Unsafe,
 }
 
 fn is_safe(seq: &[u32]) -> bool {
-    let seq_safety: Vec<SequenceSafety> = seq.iter().tuple_windows().map(|(&a, &b)| {
-        match a as i64 - b as i64 {
+    let seq_safety: Vec<SequenceSafety> = seq
+        .iter()
+        .tuple_windows()
+        .map(|(&a, &b)| match a as i64 - b as i64 {
             1..=3 => SequenceSafety::SafeUp,
             -3..=-1 => SequenceSafety::SafeDown,
-            _ => SequenceSafety::Unsafe
-        }
-    }).collect();
+            _ => SequenceSafety::Unsafe,
+        })
+        .collect();
     let first = seq_safety.first().unwrap();
     first != &SequenceSafety::Unsafe && seq_safety.iter().all(|s| s == first)
 }
 
 fn can_be_made_safe(seq: &[u32]) -> bool {
-    for i in 0 .. seq.len() {
-        let test_seq = seq[..i].iter().chain(seq[i+1..].iter());
+    for i in 0..seq.len() {
+        let test_seq = seq[..i].iter().chain(seq[i + 1..].iter());
         if is_safe(test_seq.copied().collect::<Vec<u32>>().as_slice()) {
             return true;
         }
@@ -31,17 +33,35 @@ fn can_be_made_safe(seq: &[u32]) -> bool {
 }
 
 pub fn part_one(input: &str) -> Option<u32> {
-    Some(input.lines().map(|line| {
-        let seq: Vec<u32> = line.split_whitespace().map(|n| n.parse().unwrap()).collect();
-        is_safe(seq.as_slice())
-    }).filter(|&s| s).count() as u32)
+    Some(
+        input
+            .lines()
+            .map(|line| {
+                let seq: Vec<u32> = line
+                    .split_whitespace()
+                    .map(|n| n.parse().unwrap())
+                    .collect();
+                is_safe(seq.as_slice())
+            })
+            .filter(|&s| s)
+            .count() as u32,
+    )
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
-    Some(input.lines().map(|line| {
-        let seq: Vec<u32> = line.split_whitespace().map(|n| n.parse().unwrap()).collect();
-        is_safe(seq.as_slice()) || can_be_made_safe(seq.as_slice())
-    }).filter(|&s| s).count() as u32)
+    Some(
+        input
+            .lines()
+            .map(|line| {
+                let seq: Vec<u32> = line
+                    .split_whitespace()
+                    .map(|n| n.parse().unwrap())
+                    .collect();
+                is_safe(seq.as_slice()) || can_be_made_safe(seq.as_slice())
+            })
+            .filter(|&s| s)
+            .count() as u32,
+    )
 }
 
 #[cfg(test)]

@@ -1,24 +1,32 @@
 advent_of_code::solution!(1);
 
 pub fn part_one(input: &str) -> Option<u32> {
-    let (mut left, mut right): (Vec<u32>, Vec<u32>) = input.lines()
-    .filter_map(|l| l.split_once("   ")
-    .map(|(left, right)| (left.parse::<u32>().unwrap(), right.parse::<u32>().unwrap())))
-    .unzip();
+    let (mut left, mut right): (Vec<u32>, Vec<u32>) = input
+        .lines()
+        .filter_map(|l| {
+            l.split_once("   ")
+                .map(|(left, right)| (left.parse::<u32>().unwrap(), right.parse::<u32>().unwrap()))
+        })
+        .unzip();
 
     left.sort();
     right.sort();
 
-    Some(left.into_iter().zip(right).fold(0, |acc, (l, r)| {
-        acc + l.abs_diff(r)
-    }))
+    Some(
+        left.into_iter()
+            .zip(right)
+            .fold(0, |acc, (l, r)| acc + l.abs_diff(r)),
+    )
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
-    let (left, right): (Vec<u32>, Vec<u32>) = input.lines()
-    .filter_map(|l| l.split_once("   ")
-    .map(|(left, right)| (left.parse::<u32>().unwrap(), right.parse::<u32>().unwrap())))
-    .unzip();
+    let (left, right): (Vec<u32>, Vec<u32>) = input
+        .lines()
+        .filter_map(|l| {
+            l.split_once("   ")
+                .map(|(left, right)| (left.parse::<u32>().unwrap(), right.parse::<u32>().unwrap()))
+        })
+        .unzip();
 
     Some(left.iter().fold(0, |acc, l| {
         acc + l * right.iter().filter(|&r| r == l).count() as u32
