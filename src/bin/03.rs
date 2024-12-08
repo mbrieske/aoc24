@@ -1,29 +1,73 @@
-use regex::Regex;
+use nom::{
+    branch::alt,
+    bytes::complete::tag,
+    character::complete::{self, anychar},
+    combinator::value,
+    multi::{many1, many_till},
+    sequence::{delimited, separated_pair},
+    IResult, Parser,
+};
 
 advent_of_code::solution!(3);
 
+#[derive(Debug, Clone)]
+enum Instruction {
+    Mul(u32, u32),
+    Do,
+    Dont,
+}
+
+fn mul(input: &str) -> IResult<&str, Instruction> {
+    let (input, pair) = delimited(
+        tag("mul("),
+        separated_pair(complete::u32, tag(","), complete::u32),
+        tag(")"),
+    )(input)?;
+    Ok((input, Instruction::Mul(pair.0, pair.1)))
+}
+
+fn instruction(input: &str) -> IResult<&str, Instruction> {
+    alt((
+        value(Instruction::Dont, tag("don't()")),
+        value(Instruction::Do, tag("do()")),
+        mul,
+    ))(input)
+}
+
+fn parse_part1(input: &str) -> IResult<&str, Vec<Instruction>> {
+    many1(many_till(anychar, mul).map(|(_, ins)| ins))(input)
+}
+
+fn parse_part2(input: &str) -> IResult<&str, Vec<Instruction>> {
+    many1(many_till(anychar, instruction).map(|(_, ins)| ins))(input)
+}
+
 pub fn part_one(input: &str) -> Option<u32> {
-    let re = Regex::new(r"mul\((\d+),(\d+)\)").unwrap();
-    Some(re.captures_iter(input).map(|cap| {
-        let a = cap[1].parse::<u32>().unwrap();
-        let b = cap[2].parse::<u32>().unwrap();
-        a * b
-    }).sum())
+    let instructions = parse_part1(input).ok()?.1;
+    Some(
+        instructions
+            .iter()
+            .map(|ins| match ins {
+                Instruction::Mul(a, b) => a * b,
+                _ => panic!(),
+            })
+            .sum(),
+    )
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
-    let re = Regex::new(r"mul\((\d+),(\d+)\)|(do\(\))|(don\'t\(\))").unwrap();
-    Some(re.captures_iter(input).fold((true, 0), |acc, cap| {
-        match &cap[0] {
-            "do()" => (true, acc.1),
-            "don't()" => (false, acc.1),
-            _ => {
-                let a = cap[1].parse::<u32>().unwrap();
-                let b = cap[2].parse::<u32>().unwrap();
-                (acc.0, acc.1 + if acc.0 { a * b } else { 0 })
-            }
-        }
-    }).1)
+    let instructions = parse_part2(input).ok()?.1;
+    Some(
+        instructions
+            .iter()
+            .fold((true, 0), |(do_mul, acc), ins| match (do_mul, ins) {
+                (true, Instruction::Mul(a, b)) => (do_mul, acc + a * b),
+                (false, Instruction::Mul(_, _)) => (do_mul, acc),
+                (_, Instruction::Do) => (true, acc),
+                (_, Instruction::Dont) => (false, acc),
+            })
+            .1,
+    )
 }
 
 #[cfg(test)]
