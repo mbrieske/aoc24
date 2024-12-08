@@ -25,6 +25,10 @@ fn parse_input(input: &str) -> (usize, usize, HashMap<char, Vec<IVec2>>) {
     (map_width, map_heigth, antennas)
 }
 
+fn is_in_bouds(pos: IVec2, map_width: usize, map_heigth: usize) -> bool {
+    pos.x >= 0 && pos.x < map_width as i32 && pos.y >= 0 && pos.y < map_heigth as i32
+}
+
 pub fn part_one(input: &str) -> Option<u32> {
     let (map_width, map_heigth, antennas) = parse_input(input);
     let num_antinodes = antennas
@@ -37,7 +41,7 @@ pub fn part_one(input: &str) -> Option<u32> {
             })
         })
         .unique()
-        .filter(|&p| p.x >= 0 && p.x < map_width as i32 && p.y >= 0 && p.y < map_heigth as i32)
+        .filter(|&p| is_in_bouds(p, map_width, map_heigth))
         .count() as u32;
     Some(num_antinodes)
 }
@@ -53,21 +57,13 @@ pub fn part_two(input: &str) -> Option<u32> {
                 let mut antinodes = vec![*a, *b];
 
                 let mut antinode_candidate = a - delta;
-                while antinode_candidate.x >= 0
-                    && antinode_candidate.x < map_width as i32
-                    && antinode_candidate.y >= 0
-                    && antinode_candidate.y < map_heigth as i32
-                {
+                while is_in_bouds(antinode_candidate, map_width, map_heigth) {
                     antinodes.push(antinode_candidate);
                     antinode_candidate -= delta;
                 }
 
                 antinode_candidate = b + delta;
-                while antinode_candidate.x >= 0
-                    && antinode_candidate.x < map_width as i32
-                    && antinode_candidate.y >= 0
-                    && antinode_candidate.y < map_heigth as i32
-                {
+                while is_in_bouds(antinode_candidate, map_width, map_heigth) {
                     antinodes.push(antinode_candidate);
                     antinode_candidate += delta;
                 }
@@ -76,7 +72,6 @@ pub fn part_two(input: &str) -> Option<u32> {
             })
         })
         .unique()
-        .filter(|&p| p.x >= 0 && p.x < map_width as i32 && p.y >= 0 && p.y < map_heigth as i32)
         .count() as u32;
     Some(num_antinodes)
 }
