@@ -1,16 +1,30 @@
 use glam::IVec2;
 use grid::Grid;
-use pathfinding::prelude::bfs_reach;
+use std::collections::{HashSet, VecDeque};
 
 advent_of_code::solution!(10);
 
-trait IGrid {
-    fn iget(&self, pos: IVec2) -> Option<&u8>;
+trait TopoGrid {
+    fn get_ivec(&self, pos: IVec2) -> Option<&u8>;
+
+    fn next(&self, pos: IVec2, v: u8) -> Vec<(IVec2, u8)>;
 }
 
-impl IGrid for Grid<u8> {
-    fn iget(&self, pos: IVec2) -> Option<&u8> {
+impl TopoGrid for Grid<u8> {
+    fn get_ivec(&self, pos: IVec2) -> Option<&u8> {
         self.get(usize::try_from(pos.y).ok()?, usize::try_from(pos.x).ok()?)
+    }
+
+    fn next(&self, pos: IVec2, v: u8) -> Vec<(IVec2, u8)> {
+        [IVec2::X, IVec2::NEG_X, IVec2::Y, IVec2::NEG_Y]
+            .iter()
+            .map(|dir| pos + dir)
+            .filter_map(|next_pos| {
+                self.get_ivec(next_pos)
+                    .map(|&next_val| (next_pos, next_val))
+            })
+            .filter(|&(_, s)| s == v + 1)
+            .collect()
     }
 }
 
@@ -35,39 +49,26 @@ fn parse(input: &str) -> (Vec<IVec2>, Grid<u8>) {
     (start_positions, grid)
 }
 
-fn successors(grid: &Grid<u8>, pos: IVec2, v: u8) -> Vec<(IVec2, u8)> {
-    [IVec2::X, IVec2::NEG_X, IVec2::Y, IVec2::NEG_Y]
-        .iter()
-        .map(|dir| pos + dir)
-        .filter_map(|next_pos| grid.iget(next_pos).map(|&next_val| (next_pos, next_val)))
-        .filter(|&(_, s)| s == v + 1)
-        .collect()
-}
-
-fn successor_paths(grid: &Grid<u8>, path: Vec<IVec2>, v: u8) -> Vec<(Vec<IVec2>, u8)> {
-    let last = path.last().unwrap();
-    successors(grid, *last, v)
-        .into_iter()
-        .map(|(s_pos, s_val)| {
-            let mut path = path.clone();
-            path.push(s_pos);
-            (path, s_val)
-        })
-        .collect()
-}
-
 pub fn part_one(input: &str) -> Option<u32> {
     let (start_positions, grid) = parse(input);
 
     let res: u32 = start_positions
         .iter()
         .map(|&pos| {
-            let v_first = *grid.iget(pos).unwrap();
-            bfs_reach((pos, v_first), |&(n_pos, n_val)| {
-                successors(&grid, n_pos, n_val)
-            })
-            .filter(|&(_, n_val)| n_val == 9)
-            .count() as u32
+            let mut visited = HashSet::new();
+            let mut queue = VecDeque::new();
+            queue.push_back((pos, 0));
+            while queue.len() > 0 {
+                let (pos, v) = queue.pop_front().unwrap();
+                if v == 9 {
+                    visited.insert(pos);
+                } else {
+                    for (next_pos, next_val) in grid.next(pos, v) {
+                        queue.push_back((next_pos, next_val));
+                    }
+                }
+            }
+            visited.len() as u32
         })
         .sum();
 
@@ -77,13 +78,23 @@ pub fn part_one(input: &str) -> Option<u32> {
 pub fn part_two(input: &str) -> Option<u32> {
     let (start_positions, grid) = parse(input);
 
-    let res = start_positions
+    let res: u32 = start_positions
         .iter()
         .map(|&pos| {
-            let start = (vec![pos], *grid.iget(pos).unwrap());
-            bfs_reach(start, |(path, v)| successor_paths(&grid, path.clone(), *v))
-                .filter(|&(_, n_val)| n_val == 9)
-                .count() as u32
+            let mut trail_count = 0;
+            let mut queue = VecDeque::new();
+            queue.push_back((pos, 0));
+            while queue.len() > 0 {
+                let (pos, v) = queue.pop_front().unwrap();
+                if v == 9 {
+                    trail_count += 1;
+                } else {
+                    for (next_pos, next_val) in grid.next(pos, v) {
+                        queue.push_back((next_pos, next_val));
+                    }
+                }
+            }
+            trail_count
         })
         .sum();
 
