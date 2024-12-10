@@ -1,62 +1,73 @@
 use glam::IVec2;
+use grid::Grid;
 use pathfinding::prelude::bfs_reach;
-use std::collections::HashMap;
 
 advent_of_code::solution!(10);
 
-#[derive(Debug, PartialEq, Eq, Hash)]
-struct Node {
-    pos: IVec2,
-    value: u8,
+trait IGrid {
+    fn iget(&self, pos: IVec2) -> Option<&u8>;
 }
 
-fn parse(input: &str) -> (Vec<IVec2>, HashMap<IVec2, Node>) {
-    input.lines().enumerate().fold(
-        (Vec::new(), HashMap::new()),
-        |(mut start_positions, mut graph), (y, line)| {
-            line.chars().enumerate().for_each(|(x, c)| {
-                let value = c.to_digit(10).unwrap() as u8;
-                let pos = IVec2::new(x as i32, y as i32);
-                let node = Node { pos, value };
-                if value == 0 {
-                    start_positions.push(pos);
-                }
-                graph.insert(pos, node);
-            });
-            (start_positions, graph)
-        },
-    )
+impl IGrid for Grid<u8> {
+    fn iget(&self, pos: IVec2) -> Option<&u8> {
+        self.get(usize::try_from(pos.y).ok()?, usize::try_from(pos.x).ok()?)
+    }
 }
 
-fn successors<'a>(graph: &'a HashMap<IVec2, Node>, n: &'a Node) -> Vec<&'a Node> {
+fn parse(input: &str) -> (Vec<IVec2>, Grid<u8>) {
+    let mut start_positions = Vec::new();
+    let width = input.lines().next().unwrap().chars().count();
+    let iv: Vec<u8> = input
+        .chars()
+        .filter(|&c| c != '\n')
+        .map(|c| c.to_digit(10).unwrap() as u8)
+        .enumerate()
+        .inspect(|(i, v)| {
+            if *v == 0 {
+                start_positions.push(IVec2::new((i % width) as i32, (i / width) as i32))
+            }
+        })
+        .map(|(_, v)| v)
+        .collect();
+
+    let grid = Grid::from_vec(iv, width);
+
+    (start_positions, grid)
+}
+
+fn successors(grid: &Grid<u8>, pos: IVec2, v: u8) -> Vec<(IVec2, u8)> {
     [IVec2::X, IVec2::NEG_X, IVec2::Y, IVec2::NEG_Y]
         .iter()
-        .map(|dir| n.pos + dir)
-        .filter_map(|pos| graph.get(&pos))
-        .filter(|s| s.value == n.value + 1)
+        .map(|dir| pos + dir)
+        .filter_map(|next_pos| grid.iget(next_pos).map(|&next_val| (next_pos, next_val)))
+        .filter(|&(_, s)| s == v + 1)
         .collect()
 }
 
-fn successor_paths<'a>(graph: &'a HashMap<IVec2, Node>, n: Vec<&'a Node>) -> Vec<Vec<&'a Node>> {
-    successors(graph, n.last().unwrap())
+fn successor_paths(grid: &Grid<u8>, path: Vec<IVec2>, v: u8) -> Vec<(Vec<IVec2>, u8)> {
+    let last = path.last().unwrap();
+    successors(grid, *last, v)
         .into_iter()
-        .map(|s| {
-            let mut n = n.clone();
-            n.push(s);
-            n
+        .map(|(s_pos, s_val)| {
+            let mut path = path.clone();
+            path.push(s_pos);
+            (path, s_val)
         })
         .collect()
 }
 
 pub fn part_one(input: &str) -> Option<u32> {
-    let (start_positions, graph) = parse(input);
+    let (start_positions, grid) = parse(input);
 
     let res: u32 = start_positions
         .iter()
         .map(|&pos| {
-            bfs_reach(graph.get(&pos).unwrap(), |n| successors(&graph, n))
-                .filter(|n| n.value == 9)
-                .count() as u32
+            let v_first = *grid.iget(pos).unwrap();
+            bfs_reach((pos, v_first), |&(n_pos, n_val)| {
+                successors(&grid, n_pos, n_val)
+            })
+            .filter(|&(_, n_val)| n_val == 9)
+            .count() as u32
         })
         .sum();
 
@@ -64,14 +75,14 @@ pub fn part_one(input: &str) -> Option<u32> {
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
-    let (start_positions, graph) = parse(input);
+    let (start_positions, grid) = parse(input);
 
     let res = start_positions
         .iter()
         .map(|&pos| {
-            let start = vec![graph.get(&pos).unwrap()];
-            bfs_reach(start, |n| successor_paths(&graph, n.clone()))
-                .filter(|n| n.last().unwrap().value == 9)
+            let start = (vec![pos], *grid.iget(pos).unwrap());
+            bfs_reach(start, |(path, v)| successor_paths(&grid, path.clone(), *v))
+                .filter(|&(_, n_val)| n_val == 9)
                 .count() as u32
         })
         .sum();
