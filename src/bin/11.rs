@@ -1,35 +1,40 @@
+use cached::proc_macro::cached;
+
 advent_of_code::solution!(11);
 
-pub fn part_one(input: &str) -> Option<u64> {
-    let mut numbers = input
+fn parse(input: &str) -> Vec<u64> {
+    input
         .split_whitespace()
         .map(|n| n.parse::<u64>().unwrap())
-        .collect::<Vec<_>>();
+        .collect()
+}
 
-    (0..25).for_each(|_| {
-        numbers = numbers
-            .iter()
-            .flat_map(|&n| {
-                if n == 0 {
-                    vec![1 as u64]
-                } else if n.to_string().chars().count() % 2 == 0 {
-                    let nstr = n.to_string();
-                    let mid = nstr.len() / 2;
-                    vec![
-                        nstr[..mid].parse::<u64>().unwrap(),
-                        nstr[mid..].parse::<u64>().unwrap(),
-                    ]
-                } else {
-                    vec![n * 2024]
-                }
-            })
-            .collect();
-    });
-    Some(numbers.len() as u64)
+#[cached]
+fn blink(n: u64, blinks: u8) -> u64 {
+    if blinks == 0 {
+        1
+    } else {
+        if n == 0 {
+            blink(1, blinks - 1)
+        } else if n.to_string().chars().count() % 2 == 0 {
+            let nstr = n.to_string();
+            let mid = nstr.len() / 2;
+            blink(nstr[..mid].parse::<u64>().unwrap(), blinks - 1)
+                + blink(nstr[mid..].parse::<u64>().unwrap(), blinks - 1)
+        } else {
+            blink(n * 2024, blinks - 1)
+        }
+    }
+}
+
+pub fn part_one(input: &str) -> Option<u64> {
+    let numbers = parse(input);
+    Some(numbers.iter().map(|&n| blink(n, 25)).sum())
 }
 
 pub fn part_two(input: &str) -> Option<u64> {
-    None
+    let numbers = parse(input);
+    Some(numbers.iter().map(|&n| blink(n, 75)).sum())
 }
 
 #[cfg(test)]
