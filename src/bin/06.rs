@@ -1,6 +1,6 @@
-use std::collections::{HashMap, HashSet};
-
+use advent_of_code::AocGrid;
 use grid::Grid;
+use std::collections::{HashMap, HashSet};
 
 advent_of_code::solution!(6);
 
