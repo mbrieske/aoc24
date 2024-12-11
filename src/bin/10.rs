@@ -44,7 +44,7 @@ pub fn part_one(input: &str) -> Option<u32> {
             let mut visited = HashSet::new();
             let mut queue = VecDeque::new();
             queue.push_back((pos, 0));
-            while queue.len() > 0 {
+            while !queue.is_empty() {
                 let (pos, v) = queue.pop_front().unwrap();
                 if v == 9 {
                     visited.insert(pos);
@@ -70,7 +70,7 @@ pub fn part_two(input: &str) -> Option<u32> {
             let mut trail_count = 0;
             let mut queue = VecDeque::new();
             queue.push_back((pos, 0));
-            while queue.len() > 0 {
+            while !queue.is_empty() {
                 let (pos, v) = queue.pop_front().unwrap();
                 if v == 9 {
                     trail_count += 1;

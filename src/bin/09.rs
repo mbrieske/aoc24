@@ -45,9 +45,10 @@ pub fn part_one(input: &str) -> Option<u64> {
     }
     Some(
         disk.iter()
-            .filter_map(|d| *d)
+            .flatten()
             .enumerate()
-            .fold(0, |acc, (i, d)| acc + i as u64 * d),
+            .map(|(i, d)| i as u64 * d)
+            .sum(),
     )
 }
 
@@ -131,7 +132,8 @@ pub fn part_two(input: &str) -> Option<u64> {
             DiskSpace::Empty(len) => std::iter::repeat(None).take(*len),
         })
         .enumerate()
-        .fold(0, |acc, (i, d)| acc + i as u64 * d.unwrap_or(0));
+        .filter_map(|(i, maybe_id)| maybe_id.map(|id| i as u64 * id))
+        .sum();
 
     Some(crc)
 }
