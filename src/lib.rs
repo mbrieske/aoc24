@@ -26,6 +26,10 @@ pub trait AocGrid<T> {
     fn from_input(input: &str) -> Self;
 
     fn get_ivec(&self, pos: IVec2) -> Option<&T>;
+
+    fn neighbors<'a>(&'a self, pos: IVec2) -> impl Iterator<Item = (IVec2, &T)>
+    where
+        T: 'a;
 }
 
 impl<T> AocGrid<T> for Grid<T>
@@ -47,6 +51,18 @@ where
         let width = input.lines().next().map(|l| l.chars().count()).unwrap();
         Grid::from_vec(v, width)
     }
+
+    fn neighbors<'a>(&'a self, pos: IVec2) -> impl Iterator<Item = (IVec2, &T)>
+    where
+        T: 'a,
+    {
+        let directions = [IVec2::X, IVec2::Y, IVec2::NEG_X, IVec2::NEG_Y];
+
+        directions.into_iter().filter_map(move |dir| {
+            let new_pos = pos + dir;
+            self.get_ivec(new_pos).map(|c| (new_pos, c))
+        })
+    }
 }
 
 impl AocGrid<char> for Grid<char> {
@@ -58,6 +74,18 @@ impl AocGrid<char> for Grid<char> {
         let v = input.chars().filter(|c| c != &'\n').collect();
         let width = input.lines().next().map(|l| l.chars().count()).unwrap();
         Grid::from_vec(v, width)
+    }
+
+    fn neighbors<'a>(&'a self, pos: IVec2) -> impl Iterator<Item = (IVec2, &char)>
+    where
+        char: 'a,
+    {
+        let directions = [IVec2::X, IVec2::Y, IVec2::NEG_X, IVec2::NEG_Y];
+
+        directions.into_iter().filter_map(move |dir| {
+            let new_pos = pos + dir;
+            self.get_ivec(new_pos).map(|c| (new_pos, c))
+        })
     }
 }
 
