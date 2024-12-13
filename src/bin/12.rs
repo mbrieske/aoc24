@@ -6,10 +6,20 @@ use grid::Grid;
 
 advent_of_code::solution!(12);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum Direction {
+    North,
+    South,
+    East,
+    West,
+}
+
+// Fences where inside is NORTH or SOUTH go from start in positive X direction,
+// fences where inside is EAST or WEST go from start in positive Y direction
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct Fence {
     start: IVec2,
-    seen_from_dir: IVec2,
+    inside: Direction,
 }
 
 fn grow_region(
@@ -86,57 +96,50 @@ pub fn part_two(input: &str) -> Option<u32> {
     let res: u32 = regions
         .iter()
         .map(|(region, _)| {
-            let fences: Vec<Fence> = region
+            let fences: HashSet<Fence> = region
                 .iter()
                 .flat_map(|pos| {
                     let neighbors = [IVec2::X, IVec2::Y, IVec2::NEG_X, IVec2::NEG_Y]
                         .iter()
-                        .filter(|&dir| {
-                            let ncand = pos + dir;
+                        .filter(move |dir| {
+                            let ncand = pos + *dir;
                             !region.contains(&ncand)
                         });
-                    let fences: Vec<Fence> = neighbors
-                        .map(|&seen_from_dir| match seen_from_dir {
-                            IVec2::X => Fence {
-                                start: pos + IVec2::new(1, 0),
-                                seen_from_dir,
-                            },
-                            IVec2::Y => Fence {
-                                start: pos + IVec2::new(0, 1),
-                                seen_from_dir,
-                            },
-                            IVec2::NEG_X => Fence {
-                                start: *pos,
-                                seen_from_dir,
-                            },
-                            IVec2::NEG_Y => Fence {
-                                start: *pos,
-                                seen_from_dir,
-                            },
-                            _ => panic!(),
-                        })
-                        .collect();
-                    fences
-                })
-                .collect();
-
-            let fence_starts: Vec<&Fence> = fences
-                .iter()
-                .filter(|f| {
-                    let before_pos = match f.seen_from_dir {
-                        IVec2::Y | IVec2::NEG_Y => f.start - IVec2::X,
-                        IVec2::X | IVec2::NEG_X => f.start - IVec2::Y,
+                    neighbors.map(move |dir| match *dir {
+                        IVec2::X => Fence {
+                            start: pos + IVec2::new(1, 0),
+                            inside: Direction::West,
+                        },
+                        IVec2::Y => Fence {
+                            start: pos + IVec2::new(0, 1),
+                            inside: Direction::South,
+                        },
+                        IVec2::NEG_X => Fence {
+                            start: *pos,
+                            inside: Direction::East,
+                        },
+                        IVec2::NEG_Y => Fence {
+                            start: *pos,
+                            inside: Direction::North,
+                        },
                         _ => panic!(),
-                    };
-
-                    let before = Fence {
-                        start: before_pos,
-                        seen_from_dir: f.seen_from_dir,
-                    };
-                    !fences.contains(&before)
+                    })
                 })
                 .collect();
-            fence_starts.len() as u32 * region.len() as u32
+
+            let fence_starts = fences.iter().filter(|f| {
+                let before_pos = match f.inside {
+                    Direction::North | Direction::South => f.start - IVec2::X,
+                    Direction::East | Direction::West => f.start - IVec2::Y,
+                };
+
+                let before = Fence {
+                    start: before_pos,
+                    inside: f.inside,
+                };
+                !fences.contains(&before)
+            });
+            fence_starts.count() as u32 * region.len() as u32
         })
         .sum::<u32>();
     Some(res)
