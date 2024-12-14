@@ -31,8 +31,7 @@ struct Robot {
 impl Robot {
     fn step(&mut self, t: i64, w: i64, h: i64) {
         self.pos += self.v * t;
-        self.pos.x = self.pos.x.rem_euclid(w);
-        self.pos.y = self.pos.y.rem_euclid(h);
+        self.pos = self.pos.rem_euclid(I64Vec2::new(w, h));
     }
 }
 
@@ -179,7 +178,7 @@ mod tests {
     #[case(&advent_of_code::template::read_file("examples", DAY), Some(12))]
     fn test_part_one(#[case] input: &str, #[case] expected: Option<u64>) {
         tracing_init(Level::INFO);
-        let result = solve_part_one(input, 100, 101, 103);
+        let result = solve_part_one(input, 100, 11, 7);
         assert_eq!(result, expected);
     }
 }
