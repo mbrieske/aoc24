@@ -1,12 +1,12 @@
 advent_of_code::solution!(17);
 
 enum Instruction {
-    Adv(u64), //check
+    Adv(u64),
     Bxl(u64),
     Bst(u64),
-    Jnz(u64), //check
+    Jnz(u64),
     Bxc,
-    Out(u64), //check
+    Out(u64),
     Bdv(u64),
     Cdv(u64),
 }
@@ -44,7 +44,7 @@ fn combo_operant(operant: u64, regs: &[u64]) -> u64 {
     }
 }
 
-fn run(instructions: Vec<&Instruction>, reg_a: u64) -> Vec<u64> {
+fn run(instructions: &[Instruction], reg_a: u64) -> Vec<u64> {
     let mut output: Vec<u64> = Vec::new();
     let mut regs = vec![reg_a, 0, 0];
     let mut ip = 0;
@@ -103,13 +103,13 @@ fn run(instructions: Vec<&Instruction>, reg_a: u64) -> Vec<u64> {
 pub fn part_one(input: &str) -> Option<String> {
     let (regs, program) = input.split_once("\n\n")?;
 
-    let regs: Vec<_> = regs
+    let reg_a = regs
         .split('\n')
         .map(|line| {
             let (_, value) = line.split_once(": ").unwrap();
             value.parse::<u64>().unwrap()
         })
-        .collect();
+        .next()?;
 
     let instructions: Vec<_> = program
         .split_once(": ")?
@@ -117,7 +117,6 @@ pub fn part_one(input: &str) -> Option<String> {
         .split(',')
         .collect::<Vec<_>>()
         .chunks(2)
-        // .inspect(|chunk| println!("{:?}", chunk))
         .map(|chunk| {
             let (ins, operant) = (chunk[0], chunk[1]);
             let ins = ins.parse::<u8>().unwrap();
@@ -126,7 +125,7 @@ pub fn part_one(input: &str) -> Option<String> {
         })
         .collect();
 
-    let output = run(instructions.iter().collect(), regs[0]);
+    let output = run(&instructions, reg_a);
 
     Some(
         output
@@ -157,18 +156,18 @@ pub fn part_two(input: &str) -> Option<u64> {
         .collect();
 
     let mut reg_a: u64 = 8_u64.pow((program.len() - 1) as u32);
-    let mut output = run(instructions.iter().collect(), reg_a);
+    let mut output = run(&instructions, reg_a);
 
     for i in (0..program.len()).rev() {
         while output.get(i) != Some(&program[i]) {
             reg_a += 8_u64.pow(i as u32);
-            output = run(instructions.iter().collect(), reg_a);
+            output = run(&instructions, reg_a);
         }
     }
 
     while output != program {
         reg_a += 1;
-        output = run(instructions.iter().collect(), reg_a);
+        output = run(&instructions, reg_a);
     }
 
     Some(reg_a)
