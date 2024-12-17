@@ -323,7 +323,7 @@ mod tests {
 
     #[rstest]
     #[case(&advent_of_code::template::read_file_part("examples", DAY, 1), Some(9021))]
-    #[case(&advent_of_code::template::read_file_part("examples", DAY, 3), None)]
+    #[case(&advent_of_code::template::read_file_part("examples", DAY, 3), Some(618))]
     fn test_part_two(#[case] input: &str, #[case] expected: Option<u32>) {
         tracing_init(Level::INFO);
         let result = part_two(input);
