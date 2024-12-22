@@ -1,4 +1,7 @@
+use std::hash::Hash;
+
 use advent_of_code::AocGrid;
+use cached::proc_macro::cached;
 use glam::IVec2;
 use grid::Grid;
 use pathfinding::prelude::dijkstra;
@@ -9,6 +12,15 @@ advent_of_code::solution!(21);
 enum PadType {
     NumberPad,
     Keypad,
+}
+
+impl PadType {
+    fn to_string(&self) -> String {
+        match self {
+            PadType::NumberPad => String::from("NbrPad"),
+            PadType::Keypad => String::from("KeyPad"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -54,6 +66,20 @@ fn successors(state: &State, pad: &Grid<char>) -> Vec<(State, usize)> {
             )
         })
         .collect()
+}
+
+#[cached(
+    key = "String",
+    convert = r#"{ pad_type.to_string() + &c_from.to_string() + &c_to.to_string() }"#
+)]
+fn get_path(pad: &Grid<char>, pad_type: PadType, c_from: &char, c_to: &char) -> Vec<State> {
+    dijkstra(
+        &State::new(match_pad_pos(c_from, pad_type)),
+        |state| successors(state, &pad),
+        |state| pad.get_ivec(state.pos).unwrap() == c_to,
+    )
+    .unwrap()
+    .0
 }
 
 fn match_dir(dir: IVec2) -> Option<char> {
@@ -103,22 +129,13 @@ fn match_keypad_pos(btn: char) -> IVec2 {
     IVec2::new(x, y)
 }
 
-fn pad_type(pad: &Grid<char>, pad_type: PadType, input: &mut Vec<char>) -> Vec<char> {
+fn translate_controls(pad: &Grid<char>, pad_type: PadType, input: &mut Vec<char>) -> Vec<char> {
     input.insert(0, 'A');
 
     let mut path = input
         .iter()
         .zip(input.iter().skip(1))
-        .flat_map(|(c_from, c_to)| {
-            let path = dijkstra(
-                &State::new(match_pad_pos(c_from, pad_type)),
-                |state| successors(state, &pad),
-                |state| pad.get_ivec(state.pos).unwrap() == c_to,
-            )
-            .unwrap()
-            .0;
-            path
-        })
+        .flat_map(|(c_from, c_to)| get_path(pad, pad_type, c_from, c_to))
         .collect::<Vec<_>>();
 
     let a = path.remove(0);
@@ -142,16 +159,12 @@ pub fn part_one(input: &str) -> Option<usize> {
         .iter()
         .zip(checknums)
         .map(|(code, checknum)| {
-            let mut input = code.chars().collect::<Vec<_>>();
-            let mut r1 = pad_type(&numberpad, PadType::NumberPad, &mut input);
-            dbg!(r1.iter().collect::<String>());
-            let mut r2 = pad_type(&keypad, PadType::Keypad, &mut r1);
-            dbg!(r2.iter().collect::<String>());
-            let r3 = pad_type(&keypad, PadType::Keypad, &mut r2);
-            dbg!(r3.iter().collect::<String>());
-            let len = r3.len() as usize;
-
-            dbg!(len, checknum);
+            let mut code = code.chars().collect::<Vec<_>>();
+            let mut inputs = translate_controls(&numberpad, PadType::NumberPad, &mut code);
+            for _ in 0..2 {
+                inputs = translate_controls(&keypad, PadType::Keypad, &mut inputs);
+            }
+            let len = inputs.len() as usize;
             len * checknum
         })
         .sum();
@@ -159,8 +172,32 @@ pub fn part_one(input: &str) -> Option<usize> {
     Some(res)
 }
 
-pub fn part_two(_input: &str) -> Option<usize> {
-    None
+pub fn part_two(input: &str) -> Option<usize> {
+    let codes = input.lines().collect::<Vec<_>>();
+    let checknums = codes
+        .iter()
+        .map(|code| code[..code.len() - 1].parse::<usize>().unwrap());
+
+    let numberpad = numberpad_generate();
+    let keypad = keypad_generate();
+
+    let res = codes
+        .iter()
+        .zip(checknums)
+        .map(|(code, checknum)| {
+            let mut code = code.chars().collect::<Vec<_>>();
+            let mut inputs = translate_controls(&numberpad, PadType::NumberPad, &mut code);
+            dbg!(inputs.len() as usize * checknum);
+            for _ in 0..5 {
+                inputs = translate_controls(&keypad, PadType::Keypad, &mut inputs);
+                dbg!(inputs.len() as usize * checknum);
+            }
+            let len = inputs.len() as usize;
+            len * checknum
+        })
+        .sum();
+
+    Some(res)
 }
 
 #[cfg(test)]
@@ -173,7 +210,7 @@ mod tests {
     #[test]
     fn test_numberpad_type() {
         let numberpad = numberpad_generate();
-        dbg!(pad_type(
+        dbg!(translate_controls(
             &numberpad,
             PadType::NumberPad,
             &mut "029A".chars().collect()
@@ -186,7 +223,7 @@ mod tests {
     fn test_keyberpad_type() {
         let keypad = keypad_generate();
         dbg!(
-            pad_type(&keypad, PadType::Keypad, &mut "<^>vA".chars().collect())
+            translate_controls(&keypad, PadType::Keypad, &mut "<^>vA".chars().collect())
                 .iter()
                 .collect::<String>()
         );
