@@ -5,13 +5,6 @@ use pathfinding::prelude::bfs;
 
 advent_of_code::solution!(20);
 
-// fn successors(pos: &IVec2, grid: &Grid<char>) -> Vec<(IVec2, usize)> {
-//     grid.neighbors(*pos)
-//         .filter(|(_, &n)| n != '#')
-//         .map(|(p, _)| (p, 1))
-//         .collect()
-// }
-
 fn successors(pos: &IVec2, grid: &Grid<char>) -> Vec<IVec2> {
     grid.neighbors(*pos)
         .filter(|(_, &n)| n != '#')
@@ -37,7 +30,6 @@ fn solve(input: &str, min_save: usize, max_cheat_picos: usize) -> Option<u32> {
         .map(|((y, x), _)| IVec2::new(x as i32, y as i32))
         .unwrap();
 
-    // let (path, _) = dijkstra(&start, |p| successors(p, &maze), |&p| p == finish).unwrap();
     let path = bfs(&start, |p| successors(p, &maze), |&p| p == finish).unwrap();
 
     let cheats =
