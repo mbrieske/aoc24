@@ -1,12 +1,22 @@
-use std::hash::Hash;
-
 use advent_of_code::AocGrid;
 use cached::proc_macro::cached;
 use glam::IVec2;
 use grid::Grid;
+use once_cell::sync::Lazy;
 use pathfinding::prelude::dijkstra;
+use std::collections::HashMap;
+use std::hash::Hash;
 
 advent_of_code::solution!(21);
+
+static NUMBERPAD: Lazy<Grid<char>> = Lazy::new(|| Grid::<char>::from_input("789\n456\n123\nX0A\n"));
+static KEYPAD: Lazy<Grid<char>> = Lazy::new(|| Grid::<char>::from_input("X^A\n<v>\n"));
+
+static NUMBERPAD_PATHS: Lazy<HashMap<(char, char), Vec<char>>> =
+    Lazy::new(|| precompute_paths(&NUMBERPAD, PadType::NumberPad));
+
+static KEYPAD_PATHS: Lazy<HashMap<(char, char), Vec<char>>> =
+    Lazy::new(|| precompute_paths(&KEYPAD, PadType::Keypad));
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum PadType {
@@ -14,19 +24,11 @@ enum PadType {
     Keypad,
 }
 
-impl PadType {
-    fn to_string(&self) -> String {
-        match self {
-            PadType::NumberPad => String::from("NbrPad"),
-            PadType::Keypad => String::from("KeyPad"),
-        }
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct State {
     pos: IVec2,
     dir: IVec2,
+    step: usize,
 }
 
 impl State {
@@ -34,16 +36,9 @@ impl State {
         Self {
             pos: init_pos,
             dir: IVec2::ZERO,
+            step: 1,
         }
     }
-}
-
-fn numberpad_generate() -> Grid<char> {
-    Grid::<char>::from_input("789\n456\n123\nX0A\n")
-}
-
-fn keypad_generate() -> Grid<char> {
-    Grid::<char>::from_input("X^A\n<v>\n")
 }
 
 fn successors(state: &State, pad: &Grid<char>) -> Vec<(State, usize)> {
@@ -51,7 +46,14 @@ fn successors(state: &State, pad: &Grid<char>) -> Vec<(State, usize)> {
         .filter(|(_, &nchar)| nchar != 'X')
         .map(|(npos, _)| {
             let ndir = npos - state.pos;
-            let mut cost = 1;
+            let mut cost = match ndir {
+                IVec2::NEG_X => 10,
+                IVec2::NEG_Y => 20,
+                IVec2::Y => 30,
+                IVec2::X => 40,
+                _ => unreachable!(),
+            };
+            cost /= state.step;
 
             if ndir != state.dir && state.dir != IVec2::ZERO {
                 cost += 1000;
@@ -61,6 +63,7 @@ fn successors(state: &State, pad: &Grid<char>) -> Vec<(State, usize)> {
                 State {
                     pos: npos,
                     dir: ndir,
+                    step: state.step + 1,
                 },
                 cost,
             )
@@ -68,18 +71,37 @@ fn successors(state: &State, pad: &Grid<char>) -> Vec<(State, usize)> {
         .collect()
 }
 
-#[cached(
-    key = "String",
-    convert = r#"{ pad_type.to_string() + &c_from.to_string() + &c_to.to_string() }"#
-)]
-fn get_path(pad: &Grid<char>, pad_type: PadType, c_from: &char, c_to: &char) -> Vec<State> {
-    dijkstra(
-        &State::new(match_pad_pos(c_from, pad_type)),
-        |state| successors(state, &pad),
-        |state| pad.get_ivec(state.pos).unwrap() == c_to,
-    )
-    .unwrap()
-    .0
+fn precompute_paths(pad: &Grid<char>, pad_type: PadType) -> HashMap<(char, char), Vec<char>> {
+    let mut map = HashMap::new();
+    let chars = pad
+        .iter()
+        .filter(|&&c| c != 'X')
+        .copied()
+        .collect::<Vec<_>>();
+    for &c_from in &chars {
+        for &c_to in &chars {
+            let mut path = dijkstra(
+                &State::new(match_pad_pos(&c_from, pad_type)),
+                |state| successors(state, pad),
+                |state| pad.get_ivec(state.pos).unwrap() == &c_to,
+            )
+            .unwrap()
+            .0
+            .iter()
+            .map(|state| match_dir(state.dir).unwrap())
+            .collect::<Vec<_>>();
+            path.rotate_left(1);
+            map.insert((c_from, c_to), path);
+        }
+    }
+    map
+}
+
+fn get_path(pad_type: PadType, c_from: &char, c_to: &char) -> &'static Vec<char> {
+    match pad_type {
+        PadType::NumberPad => NUMBERPAD_PATHS.get(&(*c_from, *c_to)).unwrap(),
+        PadType::Keypad => KEYPAD_PATHS.get(&(*c_from, *c_to)).unwrap(),
+    }
 }
 
 fn match_dir(dir: IVec2) -> Option<char> {
@@ -129,73 +151,83 @@ fn match_keypad_pos(btn: char) -> IVec2 {
     IVec2::new(x, y)
 }
 
-fn translate_controls(pad: &Grid<char>, pad_type: PadType, input: &mut Vec<char>) -> Vec<char> {
-    input.insert(0, 'A');
+fn translate_controls(pad_type: PadType, input: &[char]) -> Vec<char> {
+    let mut new_input = Vec::with_capacity(input.len() + 1);
+    new_input.push('A');
+    new_input.extend_from_slice(input);
 
-    let mut path = input
+    let path = new_input
         .iter()
-        .zip(input.iter().skip(1))
-        .flat_map(|(c_from, c_to)| get_path(pad, pad_type, c_from, c_to))
+        .zip(new_input.iter().skip(1))
+        .flat_map(|(c_from, c_to)| get_path(pad_type, c_from, c_to).to_owned())
         .collect::<Vec<_>>();
+    path
+}
 
-    let a = path.remove(0);
-    path.push(a);
-
-    path.iter()
-        .flat_map(|state| match_dir(state.dir))
-        .collect::<Vec<_>>()
+#[cached]
+fn expand_get_length(inputs: Vec<char>, iterations: usize) -> usize {
+    if iterations == 0 {
+        return inputs.len();
+    } else {
+        let expanded = translate_controls(PadType::Keypad, &inputs);
+        let mut slices = Vec::new();
+        let mut start = 0;
+        (0..expanded.len()).for_each(|i| {
+            if expanded[i] == 'A' {
+                slices.push(expanded[start..=i].to_vec());
+                start = i + 1;
+            }
+        });
+        slices
+            .into_iter()
+            .map(|slice| expand_get_length(slice, iterations - 1))
+            .sum()
+    }
 }
 
 pub fn part_one(input: &str) -> Option<usize> {
     let codes = input.lines().collect::<Vec<_>>();
-    let checknums = codes
+    let checknums: Vec<usize> = codes
         .iter()
-        .map(|code| code[..code.len() - 1].parse::<usize>().unwrap());
-
-    let numberpad = numberpad_generate();
-    let keypad = keypad_generate();
+        .map(|code| code[..code.len() - 1].parse::<usize>().unwrap())
+        .collect();
 
     let res = codes
         .iter()
-        .zip(checknums)
-        .map(|(code, checknum)| {
-            let mut code = code.chars().collect::<Vec<_>>();
-            let mut inputs = translate_controls(&numberpad, PadType::NumberPad, &mut code);
+        .zip(checknums.iter())
+        .map(|(code, &checknum)| {
+            let code = code.chars().collect::<Vec<_>>();
+            let mut inputs = translate_controls(PadType::NumberPad, &code);
             for _ in 0..2 {
-                inputs = translate_controls(&keypad, PadType::Keypad, &mut inputs);
+                inputs = translate_controls(PadType::Keypad, &inputs);
             }
-            let len = inputs.len() as usize;
+            let len = inputs.len();
             len * checknum
         })
-        .sum();
+        .sum::<usize>();
 
     Some(res)
 }
 
 pub fn part_two(input: &str) -> Option<usize> {
     let codes = input.lines().collect::<Vec<_>>();
-    let checknums = codes
-        .iter()
-        .map(|code| code[..code.len() - 1].parse::<usize>().unwrap());
 
-    let numberpad = numberpad_generate();
-    let keypad = keypad_generate();
+    let checknums: Vec<usize> = codes
+        .iter()
+        .map(|code| code[..code.len() - 1].parse::<usize>().unwrap())
+        .collect();
 
     let res = codes
         .iter()
-        .zip(checknums)
-        .map(|(code, checknum)| {
-            let mut code = code.chars().collect::<Vec<_>>();
-            let mut inputs = translate_controls(&numberpad, PadType::NumberPad, &mut code);
-            dbg!(inputs.len() as usize * checknum);
-            for _ in 0..5 {
-                inputs = translate_controls(&keypad, PadType::Keypad, &mut inputs);
-                dbg!(inputs.len() as usize * checknum);
-            }
-            let len = inputs.len() as usize;
+        .zip(checknums.iter())
+        .map(|(code, &checknum)| {
+            let code = code.chars().collect::<Vec<_>>();
+            let inputs = translate_controls(PadType::NumberPad, &code);
+
+            let len = expand_get_length(inputs, 25);
             len * checknum
         })
-        .sum();
+        .sum::<usize>();
 
     Some(res)
 }
@@ -209,24 +241,29 @@ mod tests {
 
     #[test]
     fn test_numberpad_type() {
-        let numberpad = numberpad_generate();
-        dbg!(translate_controls(
-            &numberpad,
+        let result = translate_controls(
             PadType::NumberPad,
-            &mut "029A".chars().collect()
-        )
-        .iter()
-        .collect::<String>());
+            "029A".chars().collect::<Vec<_>>().as_ref(),
+        );
+        dbg!(result.iter().collect::<String>());
     }
 
     #[test]
-    fn test_keyberpad_type() {
-        let keypad = keypad_generate();
-        dbg!(
-            translate_controls(&keypad, PadType::Keypad, &mut "<^>vA".chars().collect())
-                .iter()
-                .collect::<String>()
+    fn test_keyberpad_split() {
+        let a = translate_controls(
+            PadType::Keypad,
+            &mut "<^>vA".chars().collect::<Vec<_>>().as_ref(),
         );
+        let b = translate_controls(
+            PadType::Keypad,
+            &mut "<^>vA".chars().collect::<Vec<_>>().as_ref(),
+        );
+        let ab = a.into_iter().chain(b.into_iter()).collect::<Vec<_>>();
+        let check_equal = translate_controls(
+            PadType::Keypad,
+            &mut "<^>vA<^>vA".chars().collect::<Vec<_>>().as_ref(),
+        );
+        assert_eq!(ab, check_equal)
     }
 
     #[rstest]
@@ -238,7 +275,7 @@ mod tests {
     }
 
     #[rstest]
-    #[case(&advent_of_code::template::read_file("examples", DAY), None)]
+    #[case(&advent_of_code::template::read_file("examples", DAY), Some(154115708116294))]
     fn test_part_two(#[case] input: &str, #[case] expected: Option<usize>) {
         tracing_init(Level::INFO);
         let result = part_two(input);
