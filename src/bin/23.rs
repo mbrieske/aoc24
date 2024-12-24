@@ -30,6 +30,46 @@ fn generate_graph(input: &str) -> Graph<String, (), Undirected> {
     graph
 }
 
+/// https://en.wikipedia.org/wiki/Bron%E2%80%93Kerbosch_algorithm
+fn bron_kerbosch(
+    graph: &Graph<String, (), Undirected>,
+    r: HashSet<NodeIndex>,
+    mut p: HashSet<NodeIndex>,
+    mut x: HashSet<NodeIndex>,
+    largest_clique: &mut HashSet<NodeIndex>,
+) {
+    if p.is_empty() && x.is_empty() {
+        if r.len() > largest_clique.len() {
+            *largest_clique = r;
+        }
+        return;
+    }
+
+    let p_snapshot = p.clone();
+
+    for v in p_snapshot {
+        let n_v: HashSet<NodeIndex> = graph.neighbors(v).collect();
+
+        // R ∪ {v}
+        let mut r_new = r.clone();
+        r_new.insert(v);
+
+        // P ∩ N(v)
+        let p_new: HashSet<NodeIndex> = &p & &n_v;
+
+        // X ∩ N(v)
+        let x_new: HashSet<NodeIndex> = &x & &n_v;
+
+        bron_kerbosch(graph, r_new, p_new, x_new, largest_clique);
+
+        // P := P \ {v}
+        p.remove(&v);
+
+        // X := X ⋃ {v}
+        x.insert(v);
+    }
+}
+
 pub fn part_one(input: &str) -> Option<u32> {
     let g = generate_graph(input);
 
@@ -50,8 +90,22 @@ pub fn part_one(input: &str) -> Option<u32> {
     Some(cycles.len() as u32)
 }
 
-pub fn part_two(input: &str) -> Option<u32> {
-    None
+pub fn part_two(input: &str) -> Option<String> {
+    let g = generate_graph(input);
+    let p: HashSet<NodeIndex> = g.node_indices().collect();
+    let r = HashSet::new();
+    let x = HashSet::new();
+
+    let mut largest_clique = HashSet::new();
+
+    bron_kerbosch(&g, r, p, x, &mut largest_clique);
+
+    let res = largest_clique
+        .iter()
+        .map(|node| g[*node].to_owned())
+        .sorted()
+        .join(",");
+    Some(res)
 }
 
 #[cfg(test)]
@@ -70,8 +124,8 @@ mod tests {
     }
 
     #[rstest]
-    #[case(&advent_of_code::template::read_file("examples", DAY), None)]
-    fn test_part_two(#[case] input: &str, #[case] expected: Option<u32>) {
+    #[case(&advent_of_code::template::read_file("examples", DAY), Some("co,de,ka,ta".to_string()))]
+    fn test_part_two(#[case] input: &str, #[case] expected: Option<String>) {
         tracing_init(Level::INFO);
         let result = part_two(input);
         assert_eq!(result, expected);
