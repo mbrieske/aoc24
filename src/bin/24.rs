@@ -88,11 +88,13 @@ pub fn part_one(input: &str) -> Option<usize> {
         }
     }
 
-    let res = zs.iter().enumerate().fold(0, |acc, (idx, v)| {
-        let v = v.unwrap() as usize;
-        acc | v << idx
-    });
-    Some(res as usize)
+    zs.iter()
+        .enumerate()
+        .fold(0, |acc, (idx, v)| {
+            let v = v.unwrap() as usize;
+            acc | v << idx
+        })
+        .into()
 }
 
 pub fn part_two(_input: &str) -> Option<usize> {
@@ -116,7 +118,7 @@ mod tests {
     }
 
     #[rstest]
-    #[case(&advent_of_code::template::read_file_part("examples", DAY, 2), None)]
+    #[case(&advent_of_code::template::read_file_part("examples", DAY, 1), None)]
     fn test_part_two(#[case] input: &str, #[case] expected: Option<usize>) {
         tracing_init(Level::INFO);
         let result = part_two(input);
